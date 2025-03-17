@@ -36,20 +36,33 @@ class new extends Controller
                     break;
     
                 case 'pause':
-                    $columns['tatd_start'] = TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->orderByDesc('id')->update(['tatd_end'=> Carbon::now()]);
+                    TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->orderByDesc('id')->first()->update(['tatd_end'=> Carbon::now()]);
                     // $columns['tatd_end'] = now();
                     // TaskTimesheetDetect::create($columns);
                     break;
     
                 case 'stop':
-                    $start_time = TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->value('tatd_start');
+                    // $dataForDuration = TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->value('tatd_start');
                     // $end_time =  TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->orderByDesc('id')->value('tatd_end');
-                    if (!$start_time) {
-                        throw new \Exception('Start time not found for tatd_entity_id: ' . $columns['tatd_entity_id']);
-                    }
-                    $duration = Carbon::parse($start_time)->diffInSeconds(Carbon::now());
+                    // if (!$start_time) {
+                    //     throw new \Exception('Start time not found for tatd_entity_id: ' . $columns['tatd_entity_id']);
+                    // }
+                    TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->orderByDesc('id')->first()->update(['tatd_end'=> Carbon::now()]);
 
-                    
+                    $dataForDuration = TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->get();
+
+                    // $duration = Carbon::parse($start_time)->diffInSeconds(Carbon::now())
+                    $duration = null;
+                    foreach ($dataForDuration as $key ) {
+                        $end = $key->tatd_end;
+                        $start = $key->tatd_start;
+                        $duration += Carbon::parse($start)->diffInSeconds(Carbon::parse($end));
+                    }
+
+                    $pastData= TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->get();
+                    foreach ($pastData as $data) {
+                        $data->delete();
+                    }                    
                     TimesheetDetails::create([
                         'tide_parent_tiid' => request('tide_parent_tiid'),
                         'tide_parent_module' => request('tide_parent_module'),
@@ -62,13 +75,8 @@ class new extends Controller
                         'tide_created_by' => auth()->id(),
                         'created_at' => now(),
                     ]);
-                    $pastData= TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->get();
-                    foreach ($pastData as $data) {
-                        $data->delete();
-                    }
                     break;
             }
-    
             DB::commit();
             session()->flash('success', 'TimeSheet created successfully.');
     

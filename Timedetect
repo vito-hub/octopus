@@ -3,7 +3,8 @@
 use App\Http\Controllers\Controller;
 class new extends Controller
 {
-    public function TimesheetDetects() {
+    public function taskTimeDetect(): void
+    {
         try {
             DB::beginTransaction();
     
@@ -30,27 +31,25 @@ class new extends Controller
     
             switch(request('action')) {
                 case 'start':
-                    $columns['tatd_start'] = now();
-                    TaskTimesheetDetects::create($columns);
+                    $columns['tatd_start'] = Carbon::now();
+                    TaskTimesheetDetect::create($columns);
                     break;
     
                 case 'pause':
-                    $columns['tatd_start'] = TaskTimesheetDetects::where('tatd_entity_id', $columns['tatd_entity_id'])->value('tatd_start');
-                    $columns['tatd_end'] = now();
-                    TaskTimesheetDetects::create($columns);
+                    $columns['tatd_start'] = TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->orderByDesc('id')->update(['tatd_end'=> Carbon::now()]);
+                    // $columns['tatd_end'] = now();
+                    // TaskTimesheetDetect::create($columns);
                     break;
     
                 case 'stop':
-                    $start_time = TaskTimesheetDetects::where('tatd_entity_id', $columns['tatd_entity_id'])->value('tatd_start');
-                    $end_time = TaskTimesheetDetects::where('tatd_entity_id', $columns['tatd_entity_id'])->orderByDesc('id')->value('tatd_end');
-    
+                    $start_time = TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->value('tatd_start');
+                    // $end_time =  TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->orderByDesc('id')->value('tatd_end');
                     if (!$start_time) {
                         throw new \Exception('Start time not found for tatd_entity_id: ' . $columns['tatd_entity_id']);
                     }
+                    $duration = Carbon::parse($start_time)->diffInSeconds(Carbon::now());
 
-                    // $duration = $start_time->diffInSeconds(now());
-                    $duration = $end_time-$start_time;
-    
+                    
                     TimesheetDetails::create([
                         'tide_parent_tiid' => request('tide_parent_tiid'),
                         'tide_parent_module' => request('tide_parent_module'),
@@ -63,14 +62,10 @@ class new extends Controller
                         'tide_created_by' => auth()->id(),
                         'created_at' => now(),
                     ]);
-                    session()->flash('success', 'TimesheetDetails created successfully.');
-
-                    $pastData= TaskTimesheetDetects::where('tatd_entity_id', $columns['tatd_entity_id'])->get();
+                    $pastData= TaskTimesheetDetect::where('tatd_entity_id', $columns['tatd_entity_id'])->get();
                     foreach ($pastData as $data) {
                         $data->delete();
                     }
-                    session()->flash('success', 'TaskTimesheetDetects Deleted successfully.');
-
                     break;
             }
     
@@ -86,7 +81,8 @@ class new extends Controller
                 'data' => request()->all()
             ]);
         }
-    }    
+    
+    }
 }
 
 

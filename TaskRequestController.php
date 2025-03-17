@@ -755,3 +755,81 @@ public function TimesheetDetects()
 
     return back();
 }
+
+
+
+
+
+
+ private function handleTaskDetail($taskId, $data, $createdTask)
+    {
+        foreach ($data as $oneData) {
+            $validatedData = Validator::validate($oneData, [
+                'tade_assigned_to' => 'required|integer',
+                'tade_seen_at' => 'nullable|date',
+                'tade_status' => 'required|in:open,in_progress,done,cancel,forward',
+                'tade_start' => 'required|date',
+                'tade_end' => 'required|date',
+                'tade_final_action_at' => 'nullable|date',
+                'tade_quality_rate' => 'nullable|integer|min:1|max:5',
+                'tade_owner_action' => 'nullable|integer|in:1,2,3',
+                'tade_owner_action_at' => 'nullable|date',
+                'tade_coin' => 'required|integer',
+                'limit' => 'nullable|integer',
+            ]);
+
+            if (!empty($createdTask->ta_routine_period)) {
+                $startDate = Carbon::parse($oneData['tade_start']);
+                $endDate = Carbon::parse($oneData['tade_end']);
+
+                $taskDetailData = [
+                    'tade_task_id' => $taskId,
+                    'tade_assigned_to' => $validatedData['tade_assigned_to'],
+                    'tade_status' => $validatedData['tade_status'],
+                    'tade_seen_at' => $validatedData['tade_seen_at'] ?? null,
+                    'tade_final_action_at' => $validatedData['tade_final_action_at'] ?? null,
+                    'tade_quality_rate' => $validatedData['tade_quality_rate'] ?? null,
+                    'tade_owner_action' => $validatedData['tade_owner_action'] ?? null,
+                    'tade_owner_action_at' => $validatedData['tade_owner_action_at'] ?? null,
+                    'tade_coin' => $validatedData['tade_coin'],
+                ];
+
+                while ($startDate ->lte($endDate)) {
+                    $currentStartDate = clone $startDate;
+                    $currentEndDate = clone $endDate;
+                    $limit= $oneData['limit'];
+
+                    switch ($createdTask->ta_routine_period) {
+                        case 'daily':
+                            TaskDetail::create(array_merge($taskDetailData, [
+                                'tade_start' => $currentStartDate->toDateString(),
+                                'tade_end' => $currentStartDate->addDays($limit)->toDateString()
+                            ]));
+                            $startDate->addDay();
+                            break;
+
+                        case 'weekly':
+                            TaskDetail::create(array_merge($taskDetailData, [
+                                'tade_start' => $currentStartDate->toDateString(),
+                                'tade_end' => $currentStartDate->addDays($limit)->toDateString()
+                            ]));
+                            $startDate->addWeek();
+
+                            break;
+
+                        case 'monthly':
+                            TaskDetail::create(array_merge($taskDetailData, [
+                                'tade_start' => $currentStartDate->toDateString(),
+                                'tade_end' => $currentStartDate->addDays($limit)->toDateString()
+                            ]));
+                            $startDate->addMonth();
+                            break;
+
+                    }
+                }
+            } else {
+                $validatedData['tade_task_id'] = $taskId;
+                TaskDetail::create($validatedData);
+            }
+        }
+    }

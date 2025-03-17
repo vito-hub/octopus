@@ -1,1 +1,92 @@
+<?php
+
+use App\Http\Controllers\Controller;
+class new extends Controller
+{
+    public function TimesheetDetects() {
+        try {
+            DB::beginTransaction();
+    
+            $columns = request()->validate([
+                'tatd_entity_id' => 'required|integer',
+                'tatd_model_name' => 'nullable|string',
+                'tatd_module_id' => 'required|integer',
+                'tatd_start' => 'nullable|date',
+                'tatd_end' => 'nullable|date',
+            ]);
+    
+            $validModels = [
+                'TaskDetail' => 'app/Models/Task/TaskDetail',
+                'TaskTodo' => 'app/Models/Task/TaskTodo',
+                'CrmProjectActivity' => 'app/Models/CRM/CrmProjectActivity',
+                'Meeting' => 'app/Models/Meeting'
+            ];
+    
+            if (!array_key_exists(request('tatd_model_name'), $validModels)) {
+                throw new \Exception('Invalid tatd_model_name');
+            }
+    
+            $columns['tatd_model_name'] = $validModels[request('tatd_model_name')];
+    
+            switch(request('action')) {
+                case 'start':
+                    $columns['tatd_start'] = now();
+                    TaskTimesheetDetects::create($columns);
+                    break;
+    
+                case 'pause':
+                    $columns['tatd_start'] = TaskTimesheetDetects::where('tatd_entity_id', $columns['tatd_entity_id'])->value('tatd_start');
+                    $columns['tatd_end'] = now();
+                    TaskTimesheetDetects::create($columns);
+                    break;
+    
+                case 'stop':
+                    $start_time = TaskTimesheetDetects::where('tatd_entity_id', $columns['tatd_entity_id'])->value('tatd_start');
+                    $end_time = TaskTimesheetDetects::where('tatd_entity_id', $columns['tatd_entity_id'])->orderByDesc('id')->value('tatd_end');
+    
+                    if (!$start_time) {
+                        throw new \Exception('Start time not found for tatd_entity_id: ' . $columns['tatd_entity_id']);
+                    }
+
+                    // $duration = $start_time->diffInSeconds(now());
+                    $duration = $end_time-$start_time;
+    
+                    TimesheetDetails::create([
+                        'tide_parent_tiid' => request('tide_parent_tiid'),
+                        'tide_parent_module' => request('tide_parent_module'),
+                        'tide_entity_id' => $columns['tatd_entity_id'],
+                        'tide_date' => now(),
+                        'tide_start' => $start_time,
+                        'tide_end' => now(),
+                        'tide_duration' => $duration,
+                        'tide_parent_tyid' => null,
+                        'tide_created_by' => auth()->id(),
+                        'created_at' => now(),
+                    ]);
+                    session()->flash('success', 'TimesheetDetails created successfully.');
+
+                    $pastData= TaskTimesheetDetects::where('tatd_entity_id', $columns['tatd_entity_id'])->get();
+                    foreach ($pastData as $data) {
+                        $data->delete();
+                    }
+                    session()->flash('success', 'TaskTimesheetDetects Deleted successfully.');
+
+                    break;
+            }
+    
+            DB::commit();
+            session()->flash('success', 'TimeSheet created successfully.');
+    
+        } catch (\Exception $e) {
+            DB::rollback();
+            session()->flash('error', $e->getMessage());
+            Log::error('Error saving TimeSheetDetect data.', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'data' => request()->all()
+            ]);
+        }
+    }    
+}
+
 

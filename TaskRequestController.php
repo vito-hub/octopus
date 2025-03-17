@@ -63,7 +63,6 @@ class TaskRequestController extends Controller
                 throw new \Exception('Task creation failed or invalid task ID.');
             }
 
-
             if (!empty($data['multipleTags'])) {
                 foreach ($data['multipleTags'] as $tag) {
                     if (!Tag::find($tag['tart_tag_id'])) {
@@ -223,7 +222,7 @@ class TaskRequestController extends Controller
                         while($start_date->lte($end_date)){
                             TaskTodoRoutine::create([
                                 'tatr_todo_id' => $Created_Todo['id'],
-                                'tatr_routine_end_date' => $start_date->endOfWeek()->toDateString(),
+                                'tatr_routine_end_date' => $start_date->toDateString(),
                             ]);
                             $start_date->addWeek();
                         }
@@ -231,7 +230,7 @@ class TaskRequestController extends Controller
                         while($start_date->lte($end_date)){
                             TaskTodoRoutine::create([
                                 'tatr_todo_id'=> $Created_Todo['id'],
-                                'tatr_routine_end_date' => $start_date->endOfMonth()->toDateString(),
+                                'tatr_routine_end_date' => $start_date->toDateString(),
                             ]);
                             $start_date->addMonth();
                         }
@@ -322,7 +321,7 @@ class TaskRequestController extends Controller
             $data = request()->validate([
                 'tade_status' => 'required|in:open,in_progress,done,cancel,forward',
                 'id' => 'required|integer',
-                'tade_assigned_to' => 'nullable|integer',
+                'tade_assigned_to' => 'required_if:tade_status,forward|integer',
             ]);
             DB::beginTransaction();
             $findTaskDetail = TaskDetail::find($data['id']);
@@ -331,8 +330,8 @@ class TaskRequestController extends Controller
                 return;
             }
             $findTaskDetail->update(['tade_status' => $data['tade_status']]);
-            if ($data['tade_status'] === 'forward' && !empty($data['tade_assigned_to'])) {
-                $findTaskDetail -> update(['tade_final_action_at' => now()]);
+            if ($data['tade_status'] === 'forward') {
+                $findTaskDetail->update(['tade_final_action_at' => now()]);
                 $findMainTask = Task::find($findTaskDetail->tade_task_id);
                 if($findMainTask){
                     $findMainTask->update(['ta_is_forwardable' => 1]);
@@ -347,8 +346,6 @@ class TaskRequestController extends Controller
                     'tade_coin' => $findTaskDetail->tade_coin,
                 ]);
                 session()->flash('success', 'New task created!');
-            }else {
-                throw new Exception("Error we don't have assigned to!");
             }
             DB::commit();
             session()->flash('success', 'Your status successfully edited!');
@@ -472,9 +469,9 @@ class TaskRequestController extends Controller
                 ]);
 
                 $comment = TaskComments::create($commentData);
-    
+                
                 if(isset($commentData['attachment'])){
-                    $this->handleFileAttachments($attachmentData, $comment->id);
+                    $this->handleFileAttachments($commentdata['attachment'], $comment->id);
                 }
 
                 $message = "Comment and/or attachment added successfully!";
